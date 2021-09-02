@@ -16,7 +16,7 @@ import {
   TestERC20
 } from '../build/types';
 
-const {increaseTime, increaseTimePromise} = require('./auxiliary')
+import { increaseTime } from './auxiliary';
 
 describe('WyvernRegistry', () => {
 
