@@ -29,12 +29,13 @@ describe('WyvernRegistry', () => {
     const wyvernRegistryFactory = (await ethers.getContractFactory('WyvernRegistry', signers[0])) as WyvernRegistry__factory;
     registry = await wyvernRegistryFactory.deploy();
     await registry.deployed();
+    await registry.grantInitialAuthentication(registry.address);
   })
 
   it('does not allow additional grant',async () => {
     return expect(
       registry.grantInitialAuthentication(registry.address)
-      ).to.revertedWith('Should not have allowed additional grant');
+      ).to.revertedWith('Wyvern Protocol Proxy Registry initial address already set');
   })
 
   it('has a delegateproxyimpl', async () => {
@@ -55,7 +56,7 @@ describe('WyvernRegistry', () => {
   })
 
   it('allows proxy override', async () => {
-    await registry.connect(signers[2].address).registerProxyOverride();
+    await registry.connect(signers[2]).registerProxyOverride();
     let proxy = await registry.proxies(signers[2].address);
     assert.isTrue(proxy.length > 0);
   })
@@ -65,8 +66,8 @@ describe('WyvernRegistry', () => {
     let proxy = await registry.proxies(signers[5].address);
     let contract = await ethers.getContractAt('OwnableDelegateProxy', proxy);
     let implementation = await registry.delegateProxyImplementation();
-    assert.isOk(await contract.upgradeTo({from: signers[5].address}, registry.address));
-    assert.isOk(await contract.upgradeTo({from: signers[5].address}, implementation));
+    assert.isOk(await contract.connect(signers[5]).upgradeTo(registry.address));
+    assert.isOk(await contract.connect(signers[5]).upgradeTo(implementation));
   })
 
   it('allows proxy to receive ether',async () => {
@@ -82,7 +83,7 @@ describe('WyvernRegistry', () => {
     await erc20.deployed();
     let contract = await ethers.getContractAt('AuthenticatedProxy', proxy);
     return expect(
-      contract.receiveApproval(signers[3],amount,erc20.address,'0x', {from: signers[3]})
+      contract.connect(signers[3]).receiveApproval(signers[3].address,amount, erc20.address,'0x')
     ).to.be.revertedWith('Should not have succeeded')
   })
 
@@ -92,38 +93,41 @@ describe('WyvernRegistry', () => {
     const testERC20Factory = (await ethers.getContractFactory('TestERC20', signers[0])) as TestERC20__factory;
     let erc20 = await testERC20Factory.deploy();
     await erc20.deployed();
-    await Promise.all([erc20.mint(signers[3].address,amount), erc20.approve(proxy,amount, {from: signers[3]})]);
+    console.log("proxy address: ", proxy);
+    await Promise.all([erc20.mint(signers[3].address,amount), erc20.connect(signers[3]).approve(proxy, amount)]);
     let contract = await ethers.getContractAt('AuthenticatedProxy', proxy);
-    assert.isOk(contract.receiveApproval(signers[3].address,amount,erc20.address,'0x', {from: signers[3]}))
+    assert.isOk(contract.connect(signers[3]).receiveApproval(signers[3].address,amount,erc20.address,'0x'))
   })
 
   it('does not allow proxy upgrade to same implementation',async () => {
     let proxy = await registry.proxies(signers[3].address)
     let implementation = await registry.delegateProxyImplementation();
     let contract = await ethers.getContractAt('OwnableDelegateProxy', proxy);
+    await contract.connect(signers[3]).upgradeTo(implementation);
     return expect(
-      contract.upgradeTo(implementation, {from: signers[3]})
+      contract.connect(signers[3]).upgradeTo(implementation)
     ).to.be.revertedWith('Allowed upgrade to same implementation')
   })
 
   it('returns proxy type',async () => {
     let proxy = await registry.proxies(signers[3].address);
-    let contract = await ethers.getContractAt('OwnableDelegateProxy', proxy);
-    assert.equal(await contract.proxyType(),2,'Incorrect proxy type')
+    let contract = (await ethers.getContractAt('OwnableDelegateProxy', proxy)) as OwnableDelegateProxy;
+    let proxyType = await contract.proxyType();
+    assert.equal(proxyType.toNumber(), 2,'Incorrect proxy type')
   })
 
   it('does not allow proxy update from another account',async () => {
     let proxy = await registry.proxies(signers[3].address);
-    let contract = await ethers.getContractAt('OwnableDelegateProxy', proxy);
-    return expect(contract.upgradeTo(registry.address, {from: signers[1]})
+    let contract = (await ethers.getContractAt('OwnableDelegateProxy', proxy)) as OwnableDelegateProxy;
+    return expect(contract.connect(signers[1]).upgradeTo(registry.address)
     ).to.be.revertedWith('Allowed proxy update from another account')
   })
 
   it('allows proxy ownership transfer',async () => {
     let proxy = await registry.proxies(signers[3].address);
     let contract = await ethers.getContractAt('OwnableDelegateProxy', proxy);
-    assert.isOk(await contract.transferProxyOwnership(signers[4].address, {from: signers[3].address}));
-    assert.isOk(await contract.transferProxyOwnership(signers[3].address, {from: signers[4].address}));
+    assert.isOk(await contract.connect(signers[3]).transferProxyOwnership(signers[4].address));
+    assert.isOk(await contract.connect(signers[4]).transferProxyOwnership(signers[3].address));
   })
 
   it('allows start but not end of authentication process',async () => {
@@ -185,7 +189,7 @@ describe('WyvernRegistry', () => {
     let user = await contract.user();
     assert.equal(user, signers[1].address)
     await contract.methods.setRevoke(true, {from: signers[1]});
-    assert.isTrue(await contract.revoked().call(),'Should be revoked')
+    assert.isTrue(await contract.revoked(),'Should be revoked')
     assert.isOk(await contract.setRevoke(false, {from: signers[1]}),'Should be unrevoked')
   })
 
@@ -193,7 +197,7 @@ describe('WyvernRegistry', () => {
     let proxy = await registry.proxies(signers[3].address);
     let contract = await ethers.getContractAt('AuthenticatedProxy',proxy);
     return expect(
-      contract.setRevoke(true, {from: signers[1]})
+      contract.connect(signers[1]).setRevoke(true)
     ).to.be.revertedWith('Revocation was allowed from another account')
   })
 
@@ -205,7 +209,7 @@ describe('WyvernRegistry', () => {
     let contract = await ethers.getContractAt('AuthenticatedProxy', proxy);
     let user = await contract.user();
     return expect(
-      contract.initialize(registry.address, registry.address, {from: signers[1]})
+      contract.connect(signers[1]).initialize(registry.address, registry.address)
     ).to.be.revertedWith('Should not have succeeded')
   })
 

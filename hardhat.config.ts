@@ -95,6 +95,11 @@ const config: HardhatUserConfig = {
       blockGasLimit: 12000000,
       hardfork: "berlin"
     },
+    localhost: {
+      url: 'http://localhost:8545',
+      gasPrice: "auto",
+      gas: "auto",
+    }
   },
   etherscan: {
     apiKey: process.env.ETHERSCAN_API_KEY,
