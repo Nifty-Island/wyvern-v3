@@ -2,7 +2,7 @@
 
   << Wyvern Atomicizer >>
 
-  Execute multiple transactions, in order, atomically (if any fails, all revert).
+  Atomicizer library in contract form, just for testing.
 
 */
 
@@ -12,7 +12,7 @@ pragma solidity 0.7.5;
  * @title WyvernAtomicizer
  * @author Wyvern Protocol Developers
  */
-library WyvernAtomicizer {
+contract WyvernAtomicizer {
 
     function atomicize (address[] calldata addrs, uint[] calldata values, uint[] calldata calldataLengths, bytes calldata calldatas)
         external

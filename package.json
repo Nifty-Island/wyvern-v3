@@ -6,7 +6,7 @@
   "scripts": {
     "analyze": "scripts/analyze.sh",
     "flatten": "scripts/flatten.sh",
-    "compile": "scripts/compile.sh",
+    "compile": "hardhat compile",
     "coverage": "scripts/coverage.sh",
     "test": "hardhat test",
     "lint": "scripts/lint.sh",
