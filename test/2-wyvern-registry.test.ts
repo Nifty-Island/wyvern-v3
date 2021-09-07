@@ -24,7 +24,7 @@ describe('WyvernRegistry', () => {
   let signers;
 
   beforeEach(async () => {
-    
+
     signers = await ethers.getSigners();
     const wyvernRegistryFactory = (await ethers.getContractFactory('WyvernRegistry', signers[0])) as WyvernRegistry__factory;
     registry = await wyvernRegistryFactory.deploy();
@@ -71,12 +71,14 @@ describe('WyvernRegistry', () => {
   })
 
   it('allows proxy to receive ether',async () => {
+    await registry.connect(signers[5]).registerProxy();
     let proxy = await registry.proxies(signers[5].address);
     assert.isOk(await signers[0].sendTransaction({to: proxy, value: 1000}));
   })
 
   it('allows proxy to receive tokens before approval',async () => {
     const amount = '1000';
+    await registry.connect(signers[3]).registerProxy();
     let proxy = await registry.proxies(signers[3].address);
     const testERC20Factory = (await ethers.getContractFactory('TestERC20', signers[0])) as TestERC20__factory;
     let erc20 = await testERC20Factory.deploy();
@@ -84,32 +86,33 @@ describe('WyvernRegistry', () => {
     let contract = await ethers.getContractAt('AuthenticatedProxy', proxy);
     return expect(
       contract.connect(signers[3]).receiveApproval(signers[3].address,amount, erc20.address,'0x')
-    ).to.be.revertedWith('Should not have succeeded')
+    ).to.be.revertedWith('ERC20: transfer amount exceeds balance')
   })
 
   it('allows proxy to receive tokens',async () => {
     const amount = '1000';
+    await registry.connect(signers[3]).registerProxy();
     let proxy = await registry.proxies(signers[3].address);
     const testERC20Factory = (await ethers.getContractFactory('TestERC20', signers[0])) as TestERC20__factory;
     let erc20 = await testERC20Factory.deploy();
     await erc20.deployed();
-    console.log("proxy address: ", proxy);
     await Promise.all([erc20.mint(signers[3].address,amount), erc20.connect(signers[3]).approve(proxy, amount)]);
     let contract = await ethers.getContractAt('AuthenticatedProxy', proxy);
     assert.isOk(contract.connect(signers[3]).receiveApproval(signers[3].address,amount,erc20.address,'0x'))
   })
 
   it('does not allow proxy upgrade to same implementation',async () => {
-    let proxy = await registry.proxies(signers[3].address)
+    await registry.connect(signers[3]).registerProxy();
+    let proxy = await registry.proxies(signers[3].address);
     let implementation = await registry.delegateProxyImplementation();
     let contract = await ethers.getContractAt('OwnableDelegateProxy', proxy);
-    await contract.connect(signers[3]).upgradeTo(implementation);
     return expect(
       contract.connect(signers[3]).upgradeTo(implementation)
-    ).to.be.revertedWith('Allowed upgrade to same implementation')
+    ).to.be.revertedWith('Proxy already uses this implementation')
   })
 
   it('returns proxy type',async () => {
+    await registry.connect(signers[3]).registerProxy();
     let proxy = await registry.proxies(signers[3].address);
     let contract = (await ethers.getContractAt('OwnableDelegateProxy', proxy)) as OwnableDelegateProxy;
     let proxyType = await contract.proxyType();
@@ -117,13 +120,15 @@ describe('WyvernRegistry', () => {
   })
 
   it('does not allow proxy update from another account',async () => {
+    await registry.connect(signers[3]).registerProxy();
     let proxy = await registry.proxies(signers[3].address);
     let contract = (await ethers.getContractAt('OwnableDelegateProxy', proxy)) as OwnableDelegateProxy;
     return expect(contract.connect(signers[1]).upgradeTo(registry.address)
-    ).to.be.revertedWith('Allowed proxy update from another account')
+    ).to.be.revertedWith('Only the proxy owner can call this method')
   })
 
   it('allows proxy ownership transfer',async () => {
+    await registry.connect(signers[3]).registerProxy();
     let proxy = await registry.proxies(signers[3].address);
     let contract = await ethers.getContractAt('OwnableDelegateProxy', proxy);
     assert.isOk(await contract.connect(signers[3]).transferProxyOwnership(signers[4].address));
@@ -136,22 +141,24 @@ describe('WyvernRegistry', () => {
     assert.isTrue(timestamp.toNumber() > 0,'Invalid timestamp')
     return expect(
       registry.endGrantAuthentication(signers[0].address)
-    ).to.be.revertedWith('Allowed end authentication process')
+    ).to.be.revertedWith('Contract is no longer pending or has already been approved by registry')
   })
 
   it('does not allow start twice',async () => {
+    await registry.startGrantAuthentication(signers[0].address)
     return expect(
       registry.startGrantAuthentication(signers[0].address)
-    ).to.be.revertedWith('Start of authentication process allowed twice')
+    ).to.be.revertedWith('Contract is already allowed in registry, or pending')
   })
 
   it('does not allow end without start',async () => {
     return expect(
       registry.endGrantAuthentication(signers[1].address)
-    ).to.be.revertedWith('End of authentication process allowed without start')
+    ).to.be.revertedWith('Contract is no longer pending or has already been approved by registry')
   })
 
   it('allows end after time has passed',async () => {
+    await registry.startGrantAuthentication(signers[0].address)
     await increaseTime(86400 * 7 * 3);
     await registry.endGrantAuthentication(signers[0].address);
     let result = await registry.contracts(signers[0].address);
@@ -168,65 +175,70 @@ describe('WyvernRegistry', () => {
   })
 
   it('does not allow proxy registration for another user if a proxy already exists', async () => {
+    await registry.registerProxyFor(signers[1].address)
     return expect(
       registry.registerProxyFor(signers[1].address)
-    ).to.be.revertedWith('Should not have succeeded')
+    ).to.be.revertedWith('User already has a proxy')
   })
 
   it('does not allow proxy transfer from another account',async () => {
     let proxy = await registry.proxies(signers[2].address);
     return expect(
       registry.transferAccessTo(proxy, signers[2].address)
-    ).to.be.revertedWith('Should not have succeeded')
+    ).to.be.revertedWith('Proxy transfer can only be called by the proxy')
   })
 
   it('allows proxy revocation',async () => {
     const testAuthenticatedProxyFactory = (await ethers.getContractFactory('TestAuthenticatedProxy', signers[0])) as TestAuthenticatedProxy__factory;
     let testProxy = await testAuthenticatedProxyFactory.deploy();
     await testProxy.deployed();
+    await registry.connect(signers[1]).registerProxy();
     let proxy = await registry.proxies(signers[1].address);
     let contract = await ethers.getContractAt('AuthenticatedProxy', proxy);
     let user = await contract.user();
     assert.equal(user, signers[1].address)
-    await contract.methods.setRevoke(true, {from: signers[1]});
+    await contract.connect(signers[1]).setRevoke(true);
     assert.isTrue(await contract.revoked(),'Should be revoked')
-    assert.isOk(await contract.setRevoke(false, {from: signers[1]}),'Should be unrevoked')
+    assert.isOk(await contract.connect(signers[1]).setRevoke(false),'Should be unrevoked')
   })
 
   it('does not allow revoke from another account',async () => {
+    await registry.connect(signers[3]).registerProxy();
     let proxy = await registry.proxies(signers[3].address);
     let contract = await ethers.getContractAt('AuthenticatedProxy',proxy);
     return expect(
       contract.connect(signers[1]).setRevoke(true)
-    ).to.be.revertedWith('Revocation was allowed from another account')
+    ).to.be.revertedWith('Authenticated proxy can only be revoked by its user')
   })
 
   it('should not allow proxy reinitialization',async () => {
     const testAuthenticatedProxyFactory = (await ethers.getContractFactory('TestAuthenticatedProxy', signers[0])) as TestAuthenticatedProxy__factory;
     let testProxy = await testAuthenticatedProxyFactory.deploy();
     await testProxy.deployed();
+    await registry.connect(signers[1]).registerProxy();
     let proxy = await registry.proxies(signers[1].address);
     let contract = await ethers.getContractAt('AuthenticatedProxy', proxy);
     let user = await contract.user();
     return expect(
       contract.connect(signers[1]).initialize(registry.address, registry.address)
-    ).to.be.revertedWith('Should not have succeeded')
+    ).to.be.revertedWith('Authenticated proxy already initialized')
   })
 
   it('allows delegateproxy owner change, but only from owner',async () => {
     const testAuthenticatedProxyFactory = (await ethers.getContractFactory('TestAuthenticatedProxy', signers[0])) as TestAuthenticatedProxy__factory;
     let testProxy = await testAuthenticatedProxyFactory.deploy();
     await testProxy.deployed();
+    await registry.connect(signers[1]).registerProxy();
     let proxy = await registry.proxies(signers[1].address);
     let contract_at = await ethers.getContractAt('AuthenticatedProxy', proxy);
     let user = await contract_at.user();
     assert.equal(user,signers[1].address)
     let contract = await ethers.getContractAt('TestAuthenticatedProxy', testProxy.address);
-    let call = contract.setUser(signers[4].address).encodeABI();
+    let call = contract.interface.encodeFunctionData("setUser", [signers[4].address])
     await expect(
-      contract_at.proxyAssert(testProxy.address,1,call,{from: signers[4]})
-    ).to.be.revertedWith('Should not have succeeded');
-    await contract_at.proxyAssert(testProxy.address,1,call,{from: signers[1]})
+      contract_at.connect(signers[4]).proxyAssert(testProxy.address,1,call)
+    ).to.be.revertedWith('Authenticated proxy can only be called by its user, or by a contract authorized by the registry as long as the user has not revoked access');
+    await contract_at.connect(signers[1]).proxyAssert(testProxy.address,1,call,)
     user = await contract_at.user()
     assert.equal(user,signers[4].address,'User was not changed')
   })

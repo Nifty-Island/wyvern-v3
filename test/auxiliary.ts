@@ -8,10 +8,8 @@ const decoder = new ethers.utils.AbiCoder();
 const signer = jsonRPCProvider.getSigner(0);
 
 export const increaseTime = seconds => {
-  return new Promise(resolve =>
-    jsonRPCProvider.send('evm_increaseTime', [seconds])
-    )
-  }
+  return jsonRPCProvider.send('evm_increaseTime', [seconds])  
+}
 
 const eip712Order = {
   name: 'Order',
