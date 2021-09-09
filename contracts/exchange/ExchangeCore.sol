@@ -178,10 +178,8 @@ contract ExchangeCore is ReentrancyGuarded, StaticCaller, EIP712 {
 
         /* Calculate hash which must be signed. */
         bytes32 calculatedHashToSign = hashToSign(hash);
-
         /* Determine whether signer is a contract or account. */
         bool isContract = exists(maker);
-
         /* (c): Contract-only authentication: EIP/ERC 1271. */
         if (isContract) {
             if (ERC1271(maker).isValidSignature(abi.encodePacked(calculatedHashToSign), signature) == EIP_1271_MAGICVALUE) {
@@ -192,7 +190,6 @@ contract ExchangeCore is ReentrancyGuarded, StaticCaller, EIP712 {
 
         /* (d): Account-only authentication: ECDSA-signed by maker. */
         (uint8 v, bytes32 r, bytes32 s) = abi.decode(signature, (uint8, bytes32, bytes32));
-
         if (signature.length > 65 && signature[signature.length-1] == 0x03) { // EthSign byte
             /* (d.1): Old way: order hash signed by maker using the prefixed personal_sign */
             if (ecrecover(keccak256(abi.encodePacked(personalSignPrefix,"32",calculatedHashToSign)), v, r, s) == maker) {

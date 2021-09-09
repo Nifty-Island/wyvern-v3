@@ -1,3 +1,4 @@
+import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
 import { expect, assert} from 'chai';
 import { ethers } from 'hardhat';
 import { eip712Domain, structHash, signHash } from './eip712';
@@ -30,6 +31,24 @@ export const hashOrder = (order) => {
   return '0x' + structHash(eip712Order.name, eip712Order.fields, order).toString('hex')
 }
 
+export const sigBytes = (order, account: SignerWithAddress, inst) => {
+  const str = structToSign(order, inst.address);
+  const types = {
+    Order: eip712Order.fields
+  }
+  let signature = account._signTypedData(
+    str.domain,
+    types,
+    order
+  )
+  return signature
+}
+export const sign = async (order, account, inst) => {
+  const bytes = await sigBytes(order, account, inst)
+  const sig = parseSig(bytes)
+  return sig
+}
+
 const structToSign = (order, exchange) => {
   return {
     name: eip712Order.name,
@@ -37,7 +56,7 @@ const structToSign = (order, exchange) => {
     domain: {
       name: 'Wyvern Exchange',
       version: '3.1',
-      chainId: 50,
+      chainId: 1337,
       verifyingContract: exchange
     },
     data: order
@@ -83,7 +102,7 @@ export const wrap = (inst) => {
         decoder.encode(['uint8', 'bytes32', 'bytes32'], [countersig.v, countersig.r, countersig.s]) + (countersig.suffix || '')
       ])
     ),
-    atomicMatchWith: (order, sig, call, counterorder, countersig, countercall, metadata, misc) => inst.atomicMatch_(
+    atomicMatchWith: (order, sig, call, counterorder, countersig, countercall, metadata, misc) => inst.connect(misc.from).atomicMatch_(
       [order.registry, order.maker, order.staticTarget, order.maximumFill, order.listingTime, order.expirationTime, order.salt, call.target,
         counterorder.registry, counterorder.maker, counterorder.staticTarget, counterorder.maximumFill, counterorder.listingTime, counterorder.expirationTime, counterorder.salt, countercall.target],
       [order.staticSelector, counterorder.staticSelector],
@@ -93,30 +112,24 @@ export const wrap = (inst) => {
       decoder.encode(['bytes', 'bytes'], [
         decoder.encode(['uint8', 'bytes32', 'bytes32'], [sig.v, sig.r, sig.s]) + (sig.suffix || ''),
         decoder.encode(['uint8', 'bytes32', 'bytes32'], [countersig.v, countersig.r, countersig.s]) + (countersig.suffix || '')
-      ]),
-      misc
+      ])
     ),
     sign: (order, account) => {
-      const str = structToSign(order, inst.address);
-      const types = {
-        EIP712Domain: eip712Domain.fields,
-        Order: eip712Order.fields
-      }
-      return signer._signTypedData(
-        str.domain,
+      const { domain } = structToSign(order, inst.address);
+      const types = { Order: eip712Order.fields };
+      return account._signTypedData(
+        domain,
         types,
-        {
-          primaryType: 'Order',
-          message: order
-        }
+        order
       ).then(sigBytes => {
         const sig = parseSig(sigBytes)
         return sig
       })
     },
+    //This method might be broken and its use should be avoided
     personalSign: (order, account) => {
       const calculatedHashToSign = hashToSign(order, inst.address)
-      return signer.signMessage(calculatedHashToSign).then(sigBytes => {
+      return account.signMessage(calculatedHashToSign).then(sigBytes => {
         let sig = parseSig(sigBytes)
         sig.v += 27
         sig.suffix = '03' // EthSign suffix like 0xProtocol
@@ -134,4 +147,4 @@ export const randomUint = () => {
 export const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
 export const ZERO_BYTES32 = '0x0000000000000000000000000000000000000000000000000000000000000000'
 export const NULL_SIG = {v: 27, r: ZERO_BYTES32, s: ZERO_BYTES32}
-export const CHAIN_ID = 50
+export const CHAIN_ID = 1337
