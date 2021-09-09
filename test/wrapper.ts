@@ -119,7 +119,13 @@ export class WrappedExchange {
     )
   }
 
-  public async offerERC721ForERC20 (erc721Address: string, erc721Id, erc20Address: string, erc20SellPrice, expirationTime: string) {
+  public async offerERC721ForERC20 (
+    erc721Address: string,
+    erc721Id,
+    erc20Address: string,
+    erc20SellPrice,
+    expirationTime: string
+  ) : Promise<{ order: Order, signature: Sig }> {
     const maker = await this.signer.getAddress();
     const staticExtradata = ethers.utils.defaultAbiCoder.encode(
       ['address[2]', 'uint256[2]'],
@@ -128,7 +134,7 @@ export class WrappedExchange {
         [erc721Id, erc20SellPrice]
       ]
     );
-    const sellOffer = {
+    const order = {
       registry: this.addresses.WyvernRegistry,
       maker,
       staticTarget: this.addresses.StaticMarket,
@@ -140,15 +146,18 @@ export class WrappedExchange {
       salt: '11'
     }
 
-    const sellSig = await this.sign(sellOffer)
+    const signature = await this.sign(order)
 
-    return {
-      offer: sellOffer,
-      signature: sellSig
-    }
+    return { order, signature }
   }
   
-  public async offerERC20ForERC721 (erc721Address: string, erc721Id, erc20Address: string, erc20BuyPrice, expirationTime: string) {
+  public async offerERC20ForERC721 (
+    erc721Address: string,
+    erc721Id,
+    erc20Address: string,
+    erc20BuyPrice,
+    expirationTime: string
+  ) : Promise<{ order: Order, signature: Sig }> {
     const maker = await this.signer.getAddress();
     const staticExtradata = ethers.utils.defaultAbiCoder.encode(
       ['address[2]', 'uint256[2]'],
@@ -157,7 +166,7 @@ export class WrappedExchange {
         [erc721Id, erc20BuyPrice]
       ]
     )
-    const buyOffer = {
+    const order = {
       registry: this.addresses.WyvernRegistry,
       maker,
       staticTarget: this.addresses.StaticMarket,
@@ -169,11 +178,11 @@ export class WrappedExchange {
       salt: '12'
     }
 
-    const buySig = await this.sign(buyOffer)
+    const signature = await this.sign(order)
 
     return {
-      offer: buyOffer,
-      signature: buySig,
+      order,
+      signature,
     }
   }
   
@@ -194,55 +203,94 @@ export class WrappedExchange {
 
     await this.atomicMatch(sellOrder, sellSig, firstCall, buyOrder, buySig, secondCall, ZERO_BYTES32)
   }
-}
 
-// export const offerERC1155ForERC20 = async (signer, tokenId, sellingNumber = 1, sellingPrice) => {
-//   const selectorOne = marketStaticInterface.getSighash('anyERC1155ForERC20(bytes,address[7],uint8[2],uint256[6],bytes,bytes)')
-//   const paramsOne = coder.encode(
-//     ['address[2]', 'uint256[3]'],
-//     [[erc1155.address, erc20.address], [tokenId, sellingNumber, sellingPrice]]
-//   )
-//   const order = {
-//     registry: registry.address,
-//     maker: signer.address,
-//     staticTarget: staticMarket.address,
-//     staticSelector: selectorOne,
-//     staticExtradata: paramsOne,
-//     maximumFill: sellingNumber * sellingPrice,
-//     listingTime: '0',
-//     expirationTime: '10000000000',
-//     salt: '11'
-//   }
-//   let sigOne = await wrappedExchange.sign(order, signer);
-// }
+  public async offerERC1155ForERC20 (
+    erc1155Address: string,
+    erc1155Id,
+    erc1155SellAmount,
+    erc1155SellNumerator,
+    erc20Address: string,
+    erc20SellPrice,
+    expirationTime: string
+    ) : Promise<{ order: Order, signature: Sig }> {
+      const maker = await this.signer.getAddress();
+    const staticExtradata = ethers.utils.defaultAbiCoder.encode(
+      ['address[2]', 'uint256[3]'],
+      [
+        [erc1155Address, erc20Address],
+        [erc1155Id, erc1155SellNumerator, erc20SellPrice]
+      ]
+    );
+    const order = {
+      registry: this.addresses.WyvernRegistry,
+      maker,
+      staticTarget: this.addresses.StaticMarket,
+      staticSelector: anyERC1155ForERC20Selector,
+      staticExtradata,
+      maximumFill: erc1155SellNumerator * erc1155SellAmount,
+      listingTime: '0',
+      expirationTime: expirationTime,
+      salt: '11'
+    }
 
-// export const offerERC20ForERC1155 = async (signer) => {
-//   const selectorTwo = marketStaticInterface.getSighash('anyERC20ForERC1155(bytes,address[7],uint8[2],uint256[6],bytes,bytes)')
-//   const paramsTwo = coder.encode(
-//     ['address[2]', 'uint256[3]'],
-//     [[erc20.address, erc1155.address], [buyTokenId || tokenId, buyingPrice, buyingDenominator || 1]]
-//     )
-//   const order = {
-//     registry: registry.address,
-//     maker: signer.address,
-//     staticTarget: staticMarket.address,
-//     staticSelector: selectorTwo,
-//     staticExtradata: paramsTwo,
-//     maximumFill: buyingPrice*buyAmount,
-//     listingTime: '0',
-//     expirationTime: '10000000000',
-//     salt: '12'
-//   }
-//   const sig = await wrappedExchange.sign(order, signer);
-//   return sig
-// }
+    const signature = await this.sign(order)
+    
+    return { order, signature }
+  }
 
-// export const matchERC1155andERC20 = async (sellOrder, sellSig, buyOrder, buySig) => {
-//   const firstData = ERC1155Interface.encodeFunctionData("safeTransferFrom", [sellOrder.maker, buyOrder.maker, tokenId, sellingNumerator || buyAmount, "0x"]) + ZERO_BYTES32.substr(2)
-//   const secondData = ERC20Interface.encodeFunctionData("transferFrom", [buyOrder.maker, sellOrder.maker, buyAmount*buyingPrice]);
+  public async offerERC20ForERC1155 (
+    erc1155Address: string,
+    erc1155Id,
+    erc1155BuyAmount,
+    erc1155BuyDenominator,
+    erc20Address: string,
+    erc20BuyPrice,
+    expirationTime: string
+  ) : Promise<{ order: Order, signature: Sig }> {
+    const maker = await this.signer.getAddress();
+    const staticExtradata = ethers.utils.defaultAbiCoder.encode(
+      ['address[2]', 'uint256[3]'],
+      [
+        [erc20Address, erc1155Address],
+        [erc1155Id, erc20BuyPrice, erc1155BuyDenominator]
+      ]
+    )
+    const order = {
+      registry: this.addresses.WyvernRegistry,
+      maker,
+      staticTarget: this.addresses.StaticMarket,
+      staticSelector: anyERC20ForERC1155Selector,
+      staticExtradata,
+      maximumFill: erc20BuyPrice*erc1155BuyAmount,
+      listingTime: '0',
+      expirationTime,
+      salt: '12'
+    }
+
+    const signature = await this.sign(order)
+
+    return {
+      order,
+      signature,
+    }
+  }
+
+  public async matchERC1155ForERC20 (sellOrder: Order, sellSig: Sig, buyOrder: Order, buySig: Sig, buyAmount) {
+    const [[erc1155Address, erc20Address], [tokenId, erc1155Numerator, erc20SellPrice]] = ethers.utils.defaultAbiCoder.decode(['address[2]', 'uint256[3]'], sellOrder.staticExtradata)
+    const [[erc20AddressOther, erc1155AddressOther], [tokenIdOther, erc20BuyPrice, erc1155Denominator]] = ethers.utils.defaultAbiCoder.decode(['address[2]', 'uint256[3]'], buyOrder.staticExtradata)
+    
+    if (erc1155Address != erc1155AddressOther) throw new Error('ERC1155 Addresses don\'t match on orders')
+    if (erc20Address != erc20AddressOther) throw new Error('ERC20 Addresses don\'t match on orders')
+    if (!tokenId.eq(tokenIdOther)) throw new Error('ERC1155 token IDs don\'t match on orders')
+    if (!erc20SellPrice.eq(erc20BuyPrice)) throw new Error('ERC20 buying prices don\'t match on orders')
+    if (!erc1155Numerator.eq(erc1155Denominator)) throw new Error('ERC1155 Numerator and Denominator don\'t match')
   
-//   const firstCall = {target: erc1155.address, howToCall: 0, data: firstData}
-//   const secondCall = {target: erc20.address, howToCall: 0, data: secondData}
-//   await wrappedExchange.atomicMatchWith(sellOrder, sellSig, firstCall, buyOrder, buySig, secondCall, ZERO_BYTES32, {from: sender || account_a});
-// }
+    const firstData = ERC1155Interface.encodeFunctionData("safeTransferFrom", [sellOrder.maker, buyOrder.maker, tokenId, buyAmount, "0x"]) + ZERO_BYTES32.substr(2)
+		const secondData = ERC20Interface.encodeFunctionData("transferFrom", [buyOrder.maker, sellOrder.maker, buyOrder.maximumFill]);
+    
+    const firstCall = { target: erc1155Address, howToCall: 0, data: firstData }
+    const secondCall = { target: erc20Address, howToCall: 0, data: secondData }
 
+    await this.atomicMatch(sellOrder, sellSig, firstCall, buyOrder, buySig, secondCall, ZERO_BYTES32)
+  }
+}

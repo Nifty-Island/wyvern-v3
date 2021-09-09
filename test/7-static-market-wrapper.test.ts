@@ -76,7 +76,268 @@ describe('WyvernRegistry', () => {
   });
 
 	describe('erc1155 <> erc20 orders', () => {
-
+		const any_erc1155_for_erc20_test = async (options) => {
+			const {
+				tokenId,
+				buyTokenId,
+				sellAmount,
+				sellingPrice,
+				sellingNumerator,
+				buyingPrice,
+				buyAmount,
+				buyingDenominator,
+				erc1155MintAmount,
+				erc20MintAmount,
+				account_a,
+				account_b,
+				sender,
+				transactions
+			} = options
+	
+			const txCount = transactions || 1
+		
+			await registry.connect(account_a).registerProxy();
+			let proxyA = await registry.proxies(account_a.address);
+			chai.expect(true).to.eq(proxyA.length > 0);
+	
+			await registry.connect(account_b).registerProxy();
+			let proxyB = await registry.proxies(account_b.address);
+			chai.expect(true).to.eq(proxyB.length > 0);
+			
+			await erc1155.connect(account_a).setApprovalForAll(proxyA, true)
+			await erc20.connect(account_b).approve(proxyB, erc20MintAmount)
+			await erc1155['mint(address,uint256,uint256)'](account_a.address, tokenId, erc1155MintAmount)
+			await erc20.mint(account_b.address, erc20MintAmount)
+	
+			if (buyTokenId)
+				await erc1155['mint(address,uint256,uint256)'](account_a.address, buyTokenId, erc1155MintAmount)
+	
+			const wrappedExchangeSeller = new WrappedExchange(account_a, 1337);
+			const wrappedExchangeBuyer = new WrappedExchange(account_b, 1337);
+			
+			const { order: sellOrder, signature: sellSig } = await wrappedExchangeSeller.offerERC1155ForERC20(erc1155.address, tokenId, sellAmount, sellingNumerator || 1, erc20.address, sellingPrice, '0');
+			const { order: buyOrder, signature: buySig } = await wrappedExchangeBuyer.offerERC20ForERC1155(erc1155.address, buyTokenId || tokenId, buyAmount, buyingDenominator || 1, erc20.address, buyingPrice, '0');
+			
+			for (var i = 0 ; i < txCount ; ++i)
+				{
+				await wrappedExchangeBuyer.matchERC1155ForERC20(sellOrder, sellSig, buyOrder, buySig, sellingNumerator || buyAmount)
+				buyOrder.salt = buyOrder.salt + 1
+			}
+			
+			let account_a_erc20_balance = await erc20.balanceOf(account_a.address)
+			let account_b_erc1155_balance = await erc1155.balanceOf(account_b.address, tokenId)
+			chai.expect(account_a_erc20_balance.toNumber()).to.eq(sellingPrice*buyAmount*txCount);
+			chai.expect(account_b_erc1155_balance.toNumber()).to.eq(sellingNumerator || (buyAmount*txCount))
+		}
+	
+		it('StaticMarket: matches erc1155 <> erc20 order, multiple fills in 1 transaction',async () =>
+			{
+			const amount = 3
+			const price = 10000
+	
+			return any_erc1155_for_erc20_test({
+				tokenId: 5,
+				sellAmount: amount,
+				sellingPrice: price,
+				buyingPrice: price,
+				buyAmount: amount,
+				erc1155MintAmount: amount,
+				erc20MintAmount: amount*price,
+				account_a: accounts[0],
+				account_b: accounts[6],
+				sender: accounts[1]
+				})
+			})
+	
+		it('StaticMarket: matches erc1155 <> erc20 order, multiple fills in multiple transactions',async () =>
+			{
+			const nftAmount = 3
+			const buyAmount = 1
+			const price = 10000
+			const transactions = 3
+	
+			return any_erc1155_for_erc20_test({
+				tokenId: 5,
+				sellAmount: nftAmount,
+				sellingPrice: price,
+				buyingPrice: price,
+				buyAmount,
+				erc1155MintAmount: nftAmount,
+				erc20MintAmount: buyAmount*price*transactions,
+				account_a: accounts[0],
+				account_b: accounts[6],
+				sender: accounts[1],
+				transactions
+				})
+			})
+	
+		it('StaticMarket: matches erc1155 <> erc20 order, allows any partial fill',async () =>
+			{
+			const nftAmount = 30
+			const buyAmount = 4
+			const price = 10000
+	
+			return any_erc1155_for_erc20_test({
+				tokenId: 5,
+				sellAmount: nftAmount,
+				sellingPrice: price,
+				buyingPrice: price,
+				buyAmount,
+				erc1155MintAmount: nftAmount,
+				erc20MintAmount: buyAmount*price,
+				account_a: accounts[0],
+				account_b: accounts[6],
+				sender: accounts[1]
+				})
+			})
+	
+		it('StaticMarket: matches erc1155 <> erc20 order with any matching ratio',async () =>
+			{
+			const lot = 83974
+			const price = 972
+	
+			return any_erc1155_for_erc20_test({
+				tokenId: 5,
+				sellAmount: 6,
+				sellingNumerator: lot,
+				sellingPrice: price,
+				buyingPrice: price,
+				buyingDenominator: lot,
+				buyAmount: 1,
+				erc1155MintAmount: lot,
+				erc20MintAmount: price,
+				account_a: accounts[0],
+				account_b: accounts[6],
+				sender: accounts[1]
+				})
+			})
+	
+		it('StaticMarket: does not match erc1155 <> erc20 order beyond maximum fill',async () =>
+			{
+			const price = 10000
+	
+			await chai.expect(
+				any_erc1155_for_erc20_test({
+					tokenId: 5,
+					sellAmount: 1,
+					sellingPrice: price,
+					buyingPrice: price,
+					buyAmount: 1,
+					erc1155MintAmount: 2,
+					erc20MintAmount: price*2,
+					account_a: accounts[0],
+					account_b: accounts[6],
+					sender: accounts[1],
+					transactions: 2
+					})
+				).eventually.rejectedWith(/First order has invalid parameters/,)
+			})
+	
+		it('StaticMarket: does not fill erc1155 <> erc20 order with different prices',async () =>
+			{
+			const price = 10000
+	
+			await chai.expect(
+				any_erc1155_for_erc20_test({
+					tokenId: 5,
+					sellAmount: 1,
+					sellingPrice: price,
+					buyingPrice: price-10,
+					buyAmount: 1,
+					erc1155MintAmount: 1,
+					erc20MintAmount: price,
+					account_a: accounts[0],
+					account_b: accounts[6],
+					sender: accounts[1]
+					})
+				).eventually.rejectedWith(/ERC20 buying prices don\'t match on orders/,)
+			})
+	
+		it('StaticMarket: does not fill erc1155 <> erc20 order with different ratios',async () =>
+			{
+			const price = 10000
+	
+			await chai.expect(
+				any_erc1155_for_erc20_test({
+					tokenId: 5,
+					sellAmount: 1,
+					sellingPrice: price,
+					buyingPrice: price,
+					buyingDenominator: 2,
+					buyAmount: 1,
+					erc1155MintAmount: 1,
+					erc20MintAmount: price,
+					account_a: accounts[0],
+					account_b: accounts[6],
+					sender: accounts[1]
+					}),
+				).eventually.rejectedWith(/ERC1155 Numerator and Denominator don\'t match/,)
+			})
+	
+		it('StaticMarket: does not fill erc1155 <> erc20 order beyond maximum sell amount',async () =>
+			{
+			const nftAmount = 2
+			const buyAmount = 3
+			const price = 10000
+	
+			await chai.expect(
+				any_erc1155_for_erc20_test({
+					tokenId: 5,
+					sellAmount: nftAmount,
+					sellingPrice: price,
+					buyingPrice: price,
+					buyAmount,
+					erc1155MintAmount: nftAmount,
+					erc20MintAmount: buyAmount*price,
+					account_a: accounts[0],
+					account_b: accounts[6],
+					sender: accounts[1]
+					})
+				).eventually.rejectedWith(/First call failed/)
+			})
+	
+		it('StaticMarket: does not fill erc1155 <> erc20 order if balance is insufficient',async () =>
+			{
+			const nftAmount = 1
+			const buyAmount = 1
+			const price = 10000
+	
+			await chai.expect(
+				any_erc1155_for_erc20_test({
+					tokenId: 5,
+					sellAmount: nftAmount,
+					sellingPrice: price,
+					buyingPrice: price,
+					buyAmount,
+					erc1155MintAmount: nftAmount,
+					erc20MintAmount: buyAmount*price-1,
+					account_a: accounts[0],
+					account_b: accounts[6],
+					sender: accounts[1]
+					})
+				).eventually.rejectedWith(/Second call failed/)
+			})
+	
+		it('StaticMarket: does not fill erc1155 <> erc20 order if the token IDs are different',async () =>
+			{
+			const price = 10000
+	
+			await chai.expect(
+				any_erc1155_for_erc20_test({
+					tokenId: 5,
+					buyTokenId: 6,
+					sellAmount: 1,
+					sellingPrice: price,
+					buyingPrice: price,
+					buyAmount: 1,
+					erc1155MintAmount: 1,
+					erc20MintAmount: price,
+					account_a: accounts[0],
+					account_b: accounts[6],
+					sender: accounts[1],
+					})
+				).eventually.rejectedWith(/ERC1155 token IDs don\'t match on orders/)
+			})
 	});
 	
 	describe('erc721 <> erc20 orders', () => {
@@ -112,7 +373,7 @@ describe('WyvernRegistry', () => {
 			const sellData = await wrappedExchangeSeller.offerERC721ForERC20(erc721.address, tokenId, erc20.address, sellingPrice, '0');
 			const buyData = await wrappedExchangeBuyer.offerERC20ForERC721(erc721.address, buyTokenId || tokenId, erc20.address, buyingPrice, '0');
 
-			await wrappedExchangeBuyer.matchERC721ForERC20(sellData.offer, sellData.signature, buyData.offer, buyData.signature)
+			await wrappedExchangeBuyer.matchERC721ForERC20(sellData.order, sellData.signature, buyData.order, buyData.signature)
 			let account_a_erc20_balance = await erc20.balanceOf(account_a.address)
 			let token_owner = await erc721.ownerOf(tokenId)
 			chai.expect(account_a_erc20_balance.toNumber()).to.eq(sellingPrice)
