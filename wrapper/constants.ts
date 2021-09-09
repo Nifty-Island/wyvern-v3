@@ -18,7 +18,6 @@ export const eip712Order = {
 
 export const anyERC1155ForERC20Selector = '0x23b04789';
 export const anyERC20ForERC1155Selector = '0x7a7f30e0';
-
-// marketStaticInterface.getSighash('ERC721ForERC20(bytes,address[7],uint8[2],uint256[6],bytes,bytes)')
 export const ERC721ForERC20Selector = '0xc3d3626a';
 export const ERC20ForERC721Selector = '0xa6139b58';
+export const anyERC20ForERC20Selector = '0xb9845b95';
