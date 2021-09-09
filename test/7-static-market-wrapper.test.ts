@@ -1,6 +1,6 @@
 import chai from 'chai';
 import asPromised from 'chai-as-promised';
-import { ethers } from 'hardhat';
+import { ethers, network } from 'hardhat';
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
 
 import { 
@@ -37,6 +37,7 @@ describe('WyvernRegistry', () => {
   let erc1155: TestERC1155;
 
   beforeEach(async () => {
+		await network.provider.send('hardhat_reset', []);
     accounts = await ethers.getSigners();
 
     const WyvernRegistry = new WyvernRegistry__factory(accounts[0]);
@@ -73,6 +74,10 @@ describe('WyvernRegistry', () => {
     erc1155 = await TestERC1155.deploy();
     await erc1155.deployed();
   });
+
+	describe('erc1155 <> erc20 orders', () => {
+
+	});
 	
 	describe('erc721 <> erc20 orders', () => {
 		const erc721_for_erc20_test = async (options) => {
@@ -125,52 +130,52 @@ describe('WyvernRegistry', () => {
 				account_a: accounts[1],
 				account_b: accounts[6],
 			})
-		})
+		});
 
-	it('StaticMarket: does not fill erc721 <> erc20 order with different prices', async () => {
-		const price = 15000
-
-		await chai.expect(
-			erc721_for_erc20_test({
-				tokenId: 10,
-				sellingPrice: price,
-				buyingPrice: price-1,
-				erc20MintAmount: price,
-				account_a: accounts[1],
-				account_b: accounts[6],
-			})
-		).eventually.rejectedWith(/Static call failed/)
-	})
-
-	it('StaticMarket: does not fill erc721 <> erc20 order if the balance is insufficient', async () => {
-		const price = 15000
-
-		await chai.expect(
-			erc721_for_erc20_test({
-				tokenId: 10,
-				sellingPrice: price,
-				buyingPrice: price,
-				erc20MintAmount: price-1,
-				account_a: accounts[1],
-				account_b: accounts[6],
-			})
-		).eventually.rejectedWith(/Second call failed/);
-	});
-
-	it('StaticMarket: does not fill erc721 <> erc20 order if the token IDs are different', async () => {
-		const price = 15000
-
-		await chai.expect(
-			erc721_for_erc20_test({
-				tokenId: 10,
-				buyTokenId: 11,
-				sellingPrice: price,
-				buyingPrice: price,
-				erc20MintAmount: price,
-				account_a: accounts[1],
-				account_b: accounts[6],
+		it('StaticMarket: does not fill erc721 <> erc20 order with different prices', async () => {
+			const price = 15000
+			// note: this will also reject on-chain
+			await chai.expect(
+				erc721_for_erc20_test({
+					tokenId: 10,
+					sellingPrice: price,
+					buyingPrice: price-1,
+					erc20MintAmount: price,
+					account_a: accounts[1],
+					account_b: accounts[6],
 				})
-			).eventually.rejectedWith(/Static call failed/);
+			).eventually.rejectedWith(/ERC20 buying prices don\'t match on orders/);
+		});
+
+		it('StaticMarket: does not fill erc721 <> erc20 order if the balance is insufficient', async () => {
+			const price = 15000
+
+			await chai.expect(
+				erc721_for_erc20_test({
+					tokenId: 10,
+					sellingPrice: price,
+					buyingPrice: price,
+					erc20MintAmount: price-1,
+					account_a: accounts[1],
+					account_b: accounts[6],
+				})
+			).eventually.rejectedWith(/Second call failed/);
+		});
+
+		it('StaticMarket: does not fill erc721 <> erc20 order if the token IDs are different', async () => {
+			const price = 15000
+			// note: this will also reject on-chain
+			await chai.expect(
+				erc721_for_erc20_test({
+					tokenId: 10,
+					buyTokenId: 11,
+					sellingPrice: price,
+					buyingPrice: price,
+					erc20MintAmount: price,
+					account_a: accounts[1],
+					account_b: accounts[6],
+				})
+			).eventually.rejectedWith(/ERC721 token IDs don\'t match on orders/);
 		});
 	});
 });
