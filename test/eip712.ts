@@ -1,7 +1,7 @@
 // simplified from https://github.com/ethereum/EIPs/blob/master/assets/eip-712/Example.js
 
-const ethUtil = require('ethereumjs-util')
-const abi = require('ethereumjs-abi')
+import * as ethUtil from 'ethereumjs-util';
+import * as abi from 'ethereumjs-abi';
 
 function encodeType (name, fields) {
   let result = `${name}(${fields.map(({ name, type }) => `${type} ${name}`).join(',')})`
@@ -36,11 +36,11 @@ function encodeData (name, fields, data) {
   return abi.rawEncode(encTypes, encValues)
 }
 
-function structHash (name, fields, data) {
+export function structHash (name, fields, data) {
   return ethUtil.sha3(encodeData(name, fields, data))
 }
 
-const eip712Domain = {
+export const eip712Domain = {
   name: 'EIP712Domain',
   fields: [
     { name: 'name', type: 'string' },
@@ -50,7 +50,7 @@ const eip712Domain = {
   ]
 }
 
-function signHash (typedData) {
+export function signHash (typedData) {
   return ethUtil.sha3(
     Buffer.concat([
       Buffer.from('1901', 'hex'),
@@ -58,10 +58,4 @@ function signHash (typedData) {
       structHash(typedData.name, typedData.fields, typedData.data)
     ])
   )
-}
-
-module.exports = {
-  structHash,
-  signHash,
-  eip712Domain
 }

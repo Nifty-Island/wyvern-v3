@@ -88,7 +88,7 @@ export const wrap = (inst) => {
     validateOrderParameters: (order) => inst.validateOrderParameters_.call(order.registry, order.maker, order.staticTarget, order.staticSelector, order.staticExtradata, order.maximumFill, order.listingTime, order.expirationTime, order.salt),
     validateOrderAuthorization: (hash, maker, sig, misc) => inst.validateOrderAuthorization_.call(hash, maker, decoder.encode(['uint8', 'bytes32', 'bytes32'], [sig.v, sig.r, sig.s]) + (sig.suffix || ''), misc),
     approveOrderHash: (hash) => inst.approveOrderHash_(hash),
-    approveOrder: (order, inclusion, misc) => inst.approveOrder_(order.registry, order.maker, order.staticTarget, order.staticSelector, order.staticExtradata, order.maximumFill, order.listingTime, order.expirationTime, order.salt, inclusion, misc),
+    approveOrder: (order, inclusion, misc) => inst.connect(misc.from).approveOrder_(order.registry, order.maker, order.staticTarget, order.staticSelector, order.staticExtradata, order.maximumFill, order.listingTime, order.expirationTime, order.salt, inclusion),
     setOrderFill: (order, fill) => inst.setOrderFill_(hashOrder(order), fill),
     atomicMatch: (order, sig, call, counterorder, countersig, countercall, metadata) => inst.atomicMatch_(
       [order.registry, order.maker, order.staticTarget, order.maximumFill, order.listingTime, order.expirationTime, order.salt, call.target,
@@ -114,7 +114,7 @@ export const wrap = (inst) => {
         decoder.encode(['uint8', 'bytes32', 'bytes32'], [countersig.v, countersig.r, countersig.s]) + (countersig.suffix || '')
       ])
     ),
-    sign: (order, account) => {
+    sign: (order, account: SignerWithAddress) => {
       const { domain } = structToSign(order, inst.address);
       const types = { Order: eip712Order.fields };
       return account._signTypedData(
@@ -127,7 +127,7 @@ export const wrap = (inst) => {
       })
     },
     //This method might be broken and its use should be avoided
-    personalSign: (order, account) => {
+    personalSign: (order, account: SignerWithAddress) => {
       const calculatedHashToSign = hashToSign(order, inst.address)
       return account.signMessage(calculatedHashToSign).then(sigBytes => {
         let sig = parseSig(sigBytes)
