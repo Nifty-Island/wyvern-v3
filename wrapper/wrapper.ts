@@ -1,4 +1,4 @@
-import { ethers, Signer, BigNumberish, BigNumber, Transaction } from 'ethers';
+import { ethers, Signer, BigNumber, Transaction } from 'ethers';
 import {
   ZERO_BYTES32,
   ZERO_ADDRESS,
@@ -121,9 +121,9 @@ export class WrappedExchange {
 
   private async offerERC721ForERC20(
     erc721Address: string,
-    erc721Id: BigNumberish,
+    erc721Id: BigNumber,
     erc20Address: string,
-    erc20SellPrice: BigNumberish,
+    erc20SellPrice: BigNumber,
     expirationTime: string
   ) : Promise<{ order: Order, signature: Sig, orderHash: string }> {
     const maker = await this.signer.getAddress();
@@ -140,7 +140,7 @@ export class WrappedExchange {
       staticTarget: this.addresses.StaticMarket,
       staticSelector: ERC721ForERC20Selector,
       staticExtradata,
-      maximumFill: 1,
+      maximumFill: '1',
       listingTime: await this.getBlockTimestamp(),
       expirationTime,
       salt: this.generateSalt()
@@ -154,9 +154,9 @@ export class WrappedExchange {
   
   private async offerERC20ForERC721(
     erc721Address: string,
-    erc721Id: BigNumberish,
+    erc721Id: BigNumber,
     erc20Address: string,
-    erc20BuyPrice: BigNumberish,
+    erc20BuyPrice: BigNumber,
     expirationTime: string
   ) : Promise<{ order: Order, signature: Sig, orderHash: string }> {
     const maker = await this.signer.getAddress();
@@ -173,7 +173,7 @@ export class WrappedExchange {
       staticTarget: this.addresses.StaticMarket,
       staticSelector: ERC20ForERC721Selector,
       staticExtradata,
-      maximumFill: erc20BuyPrice,
+      maximumFill: erc20BuyPrice.toString(),
       listingTime: await this.getBlockTimestamp(),
       expirationTime: expirationTime,
       salt: this.generateSalt()
@@ -210,9 +210,9 @@ export class WrappedExchange {
 
   private async offerLazyERC721ForERC20(
     erc721Address: string,
-    erc721Id: BigNumberish,
+    erc721Id: BigNumber,
     erc20Address: string,
-    erc20SellPrice: BigNumberish,
+    erc20SellPrice: BigNumber,
     expirationTime: string,
     tokenURI: string,
   ) : Promise<{ order: Order, signature: Sig, orderHash: string }> {
@@ -231,7 +231,7 @@ export class WrappedExchange {
       staticTarget: this.addresses.StaticMarket,
       staticSelector: LazyERC721ForERC20Selector,
       staticExtradata,
-      maximumFill: 1,
+      maximumFill: '1',
       listingTime: await this.getBlockTimestamp(),
       expirationTime,
       salt: this.generateSalt()
@@ -245,9 +245,9 @@ export class WrappedExchange {
 
   private async offerERC20ForLazyERC721(
     erc721Address: string,
-    erc721Id: BigNumberish,
+    erc721Id: BigNumber,
     erc20Address: string,
-    erc20BuyPrice: BigNumberish,
+    erc20BuyPrice: BigNumber,
     expirationTime: string,
     tokenURI: string,
   ) : Promise<{ order: Order, signature: Sig, orderHash: string }> {
@@ -266,7 +266,7 @@ export class WrappedExchange {
       staticTarget: this.addresses.StaticMarket,
       staticSelector: LazyERC20ForERC721Selector,
       staticExtradata,
-      maximumFill: erc20BuyPrice,
+      maximumFill: erc20BuyPrice.toString(),
       listingTime: await this.getBlockTimestamp(),
       expirationTime: expirationTime,
       salt: this.generateSalt()
@@ -304,11 +304,11 @@ export class WrappedExchange {
 
   private async offerERC1155ForERC20(
     erc1155Address: string,
-    erc1155Id: BigNumberish,
-    erc1155SellAmount: BigNumberish,
-    erc1155SellNumerator: BigNumberish,
+    erc1155Id: BigNumber,
+    erc1155SellAmount: BigNumber,
+    erc1155SellNumerator: BigNumber,
     erc20Address: string,
-    erc20SellPrice: BigNumberish,
+    erc20SellPrice: BigNumber,
     expirationTime: string
   ) : Promise<{ order: Order, signature: Sig, orderHash: string }> {
     
@@ -326,7 +326,7 @@ export class WrappedExchange {
       staticTarget: this.addresses.StaticMarket,
       staticSelector: anyERC1155ForERC20Selector,
       staticExtradata,
-      maximumFill: BigNumber.from(erc1155SellNumerator).mul(BigNumber.from(erc1155SellAmount)),
+      maximumFill: BigNumber.from(erc1155SellNumerator).mul(BigNumber.from(erc1155SellAmount)).toString(),
       listingTime: await this.getBlockTimestamp(),
       expirationTime: expirationTime,
       salt: this.generateSalt()
@@ -340,11 +340,11 @@ export class WrappedExchange {
 
   private async offerERC20ForERC1155(
     erc1155Address: string,
-    erc1155Id: BigNumberish,
-    erc1155BuyAmount: BigNumberish,
-    erc1155BuyDenominator: BigNumberish,
+    erc1155Id: BigNumber,
+    erc1155BuyAmount: BigNumber,
+    erc1155BuyDenominator: BigNumber,
     erc20Address: string,
-    erc20BuyPrice: BigNumberish,
+    erc20BuyPrice: BigNumber,
     expirationTime: string
   ) : Promise<{ order: Order, signature: Sig, orderHash: string }> {
     const maker = await this.signer.getAddress();
@@ -361,7 +361,7 @@ export class WrappedExchange {
       staticTarget: this.addresses.StaticMarket,
       staticSelector: anyERC20ForERC1155Selector,
       staticExtradata,
-      maximumFill: BigNumber.from(erc20BuyPrice).mul(BigNumber.from(erc1155BuyAmount)),
+      maximumFill: BigNumber.from(erc20BuyPrice).mul(BigNumber.from(erc1155BuyAmount)).toString(),
       listingTime: await this.getBlockTimestamp(),
       expirationTime,
       salt: this.generateSalt()
@@ -378,7 +378,7 @@ export class WrappedExchange {
     sellSig: Sig,
     buyOrder: Order,
     buySig: Sig,
-    buyAmount: BigNumberish
+    buyAmount: BigNumber
   ) : Promise<Transaction> {
     const [[erc1155Address, erc20Address], [tokenId, erc1155Numerator, erc20SellPrice]] = ethers.utils.defaultAbiCoder.decode(['address[2]', 'uint256[3]'], sellOrder.staticExtradata);
     const [[erc20AddressOther, erc1155AddressOther], [tokenIdOther, erc20BuyPrice, erc1155Denominator]] = ethers.utils.defaultAbiCoder.decode(['address[2]', 'uint256[3]'], buyOrder.staticExtradata);
@@ -400,11 +400,11 @@ export class WrappedExchange {
 
   private async offerLazyERC1155ForERC20(
     erc1155Address: string,
-    erc1155Id: BigNumberish,
-    erc1155SellAmount: BigNumberish,
-    erc1155SellNumerator: BigNumberish,
+    erc1155Id: BigNumber,
+    erc1155SellAmount: BigNumber,
+    erc1155SellNumerator: BigNumber,
     erc20Address: string,
-    erc20SellPrice: BigNumberish,
+    erc20SellPrice: BigNumber,
     expirationTime: string,
     tokenURI: string,
   ) : Promise<{ order: Order, signature: Sig, orderHash: string }> {
@@ -424,7 +424,7 @@ export class WrappedExchange {
       staticTarget: this.addresses.StaticMarket,
       staticSelector: LazyERC1155ForERC20Selector,
       staticExtradata,
-      maximumFill: BigNumber.from(erc1155SellNumerator).mul(BigNumber.from(erc1155SellAmount)),
+      maximumFill: BigNumber.from(erc1155SellNumerator).mul(BigNumber.from(erc1155SellAmount)).toString(),
       listingTime: await this.getBlockTimestamp(),
       expirationTime: expirationTime,
       salt: this.generateSalt()
@@ -438,11 +438,11 @@ export class WrappedExchange {
 
   private async offerERC20ForLazyERC1155(
     erc1155Address: string,
-    erc1155Id: BigNumberish,
-    erc1155BuyAmount: BigNumberish,
-    erc1155BuyDenominator: BigNumberish,
+    erc1155Id: BigNumber,
+    erc1155BuyAmount: BigNumber,
+    erc1155BuyDenominator: BigNumber,
     erc20Address: string,
-    erc20BuyPrice: BigNumberish,
+    erc20BuyPrice: BigNumber,
     expirationTime: string,
     tokenURI: string,
   ) : Promise<{ order: Order, signature: Sig, orderHash: string }> {
@@ -461,7 +461,7 @@ export class WrappedExchange {
       staticTarget: this.addresses.StaticMarket,
       staticSelector: LazyERC20ForERC1155Selector,
       staticExtradata,
-      maximumFill: BigNumber.from(erc20BuyPrice).mul(BigNumber.from(erc1155BuyAmount)),
+      maximumFill: BigNumber.from(erc20BuyPrice).mul(BigNumber.from(erc1155BuyAmount)).toString(),
       listingTime: await this.getBlockTimestamp(),
       expirationTime,
       salt: this.generateSalt()
@@ -478,7 +478,7 @@ export class WrappedExchange {
     sellSig: Sig,
     buyOrder: Order,
     buySig: Sig,
-    buyAmount: BigNumberish
+    buyAmount: BigNumber
   ) : Promise<Transaction> {
     const [[erc1155Address, erc20Address], [tokenId, erc1155Numerator, erc20SellPrice], tokenURI] = ethers.utils.defaultAbiCoder.decode(['address[2]', 'uint256[3]', 'string'], sellOrder.staticExtradata);
     const [[erc20AddressOther, erc1155AddressOther], [tokenIdOther, erc20BuyPrice, erc1155Denominator], tokenURIOther] = ethers.utils.defaultAbiCoder.decode(['address[2]', 'uint256[3]', 'string'], buyOrder.staticExtradata);
@@ -501,10 +501,10 @@ export class WrappedExchange {
 
   private async offerERC20ForERC20(
     erc20SellerAddress: string,
-    sellingPrice: BigNumberish,
-    sellAmount: BigNumberish,
+    sellingPrice: BigNumber,
+    sellAmount: BigNumber,
     erc20BuyerAddress: string,
-    buyingPrice: BigNumberish,
+    buyingPrice: BigNumber,
     expirationTime: string
   ) : Promise<{ order: Order, signature: Sig }> {
     const maker = await this.signer.getAddress();
@@ -522,7 +522,7 @@ export class WrappedExchange {
       staticTarget: this.addresses.StaticMarket,
       staticSelector: anyERC20ForERC20Selector,
       staticExtradata,
-      maximumFill: sellAmount,
+      maximumFill: sellAmount.toString(),
       listingTime: await this.getBlockTimestamp(),
       expirationTime,
       salt: this.generateSalt()
@@ -538,7 +538,7 @@ export class WrappedExchange {
     sellSig: Sig,
     buyOrder: Order,
     buySig: Sig,
-    buyAmount: BigNumberish
+    buyAmount: BigNumber
   ) : Promise<Transaction> {
     const [[erc20SellerAddress, erc20BuyerAddress], [sellingPrice, buyingPrice]] = ethers.utils.defaultAbiCoder.decode(['address[2]', 'uint256[2]'], sellOrder.staticExtradata);
     const [[erc20BuyerAddressOther, erc20SellerAddressOther], [buyingPriceOther, sellingPriceOther]] = ethers.utils.defaultAbiCoder.decode(['address[2]', 'uint256[2]'], buyOrder.staticExtradata);
@@ -561,13 +561,13 @@ export class WrappedExchange {
   public async placeBid(
     tokenType: string,
     tokenAddress: string,
-    tokenId: BigNumberish,
+    tokenId: BigNumber,
     erc20Address: string,
-    erc20BuyPrice: BigNumberish,
+    erc20BuyPrice: BigNumber,
     expirationTime: string,
     optionalParams?: {
-      erc1155BuyAmount?: BigNumberish,
-      erc1155BuyDenominator?: BigNumberish,
+      erc1155BuyAmount?: BigNumber,
+      erc1155BuyDenominator?: BigNumber,
       lazyTokenURI?: string,
     }
   ): Promise<{order: Order; signature: Sig; orderHash: string}> {
@@ -627,13 +627,13 @@ export class WrappedExchange {
   public async placeAsk(
     tokenType: string,
     tokenAddress: string,
-    tokenId: BigNumberish,
+    tokenId: BigNumber,
     erc20Address: string,
-    erc20SellPrice: BigNumberish,
+    erc20SellPrice: BigNumber,
     expirationTime: string,
     optionalParams?: {
-      erc1155SellAmount?: BigNumberish,
-      erc1155SellNumerator?: BigNumberish,
+      erc1155SellAmount?: BigNumber,
+      erc1155SellNumerator?: BigNumber,
       lazyTokenURI?: string,
     }
   ): Promise<{order: Order; signature: Sig; orderHash: string;}> {
@@ -693,7 +693,7 @@ export class WrappedExchange {
     sellSig: Sig,
     buyOrder: Order,
     buySig: Sig,
-    buyAmount?: BigNumberish
+    buyAmount?: BigNumber
   ): Promise<Transaction>  {
     switch (tokenType) {
     case 'ERC721':
