@@ -215,16 +215,14 @@ export class WrappedExchange {
     erc20SellPrice: BigNumberish,
     expirationTime: string,
     tokenURI: string,
-    mintSignature: string,
   ) : Promise<{ order: Order, signature: Sig, orderHash: string }> {
     const maker = await this.signer.getAddress();
     const staticExtradata = ethers.utils.defaultAbiCoder.encode(
-      ['address[2]', 'uint256[2]', 'string', 'bytes'],
+      ['address[2]', 'uint256[2]', 'string'],
       [
         [erc721Address, erc20Address],
         [erc721Id, erc20SellPrice],
         tokenURI,
-        mintSignature
       ]
     );
     const order = {
@@ -252,16 +250,14 @@ export class WrappedExchange {
     erc20BuyPrice: BigNumberish,
     expirationTime: string,
     tokenURI: string,
-    mintSignature: string
   ) : Promise<{ order: Order, signature: Sig, orderHash: string }> {
     const maker = await this.signer.getAddress();
     const staticExtradata = ethers.utils.defaultAbiCoder.encode(
-      ['address[2]', 'uint256[2]', 'string', 'bytes'],
+      ['address[2]', 'uint256[2]', 'string'],
       [
         [erc20Address, erc721Address],
         [erc721Id, erc20BuyPrice],
         tokenURI,
-        mintSignature
       ]
     );
     const order = {
@@ -288,17 +284,16 @@ export class WrappedExchange {
     buyOrder: Order,
     buySig: Sig,
   ) {
-    const [[erc721Address, erc20Address], [tokenId, buyingPrice], tokenURI, mintSig] = ethers.utils.defaultAbiCoder.decode(['address[2]', 'uint256[2]', 'string', 'bytes'], sellOrder.staticExtradata);
-    const [[erc20AddressOther, erc721AddressOther], [tokenIdOther, buyingPriceOther], tokenURIOther, mintSigOther] = ethers.utils.defaultAbiCoder.decode(['address[2]', 'uint256[2]', 'string', 'bytes'], buyOrder.staticExtradata);
+    const [[erc721Address, erc20Address], [tokenId, buyingPrice], tokenURI] = ethers.utils.defaultAbiCoder.decode(['address[2]', 'uint256[2]', 'string'], sellOrder.staticExtradata);
+    const [[erc20AddressOther, erc721AddressOther], [tokenIdOther, buyingPriceOther], tokenURIOther] = ethers.utils.defaultAbiCoder.decode(['address[2]', 'uint256[2]', 'string'], buyOrder.staticExtradata);
     
     if (erc721Address != erc721AddressOther) throw new Error('ERC721 Addresses don\'t match on orders');
     if (erc20Address != erc20AddressOther) throw new Error('ERC20 Addresses don\'t match on orders');
     if (!tokenId.eq(tokenIdOther)) throw new Error('ERC721 token IDs don\'t match on orders');
     if (!buyingPrice.eq(buyingPriceOther)) throw new Error('ERC20 buying prices don\'t match on orders');
-    if (mintSig != mintSigOther) throw new Error('Lazy mint signatures don\'t match on orders');
-    if(tokenURI != tokenURIOther) throw new Error('Lazy mint tokenURIs don\'t match on orders');
+    if (tokenURI != tokenURIOther) throw new Error('Lazy mint tokenURIs don\'t match on orders');
 
-    const firstData = ERC721Interface.encodeFunctionData("mintAndTransfer", [sellOrder.maker, buyOrder.maker, tokenId, tokenURI, mintSig]);
+    const firstData = ERC721Interface.encodeFunctionData("mint(address,uint256,string)", [buyOrder.maker, tokenId, tokenURI]);
     const secondData = ERC20Interface.encodeFunctionData("transferFrom", [buyOrder.maker, sellOrder.maker, buyingPrice]);
     
     const firstCall = {target: erc721Address, howToCall: 0, data: firstData};
@@ -412,17 +407,15 @@ export class WrappedExchange {
     erc20SellPrice: BigNumberish,
     expirationTime: string,
     tokenURI: string,
-    mintSignature: string,
   ) : Promise<{ order: Order, signature: Sig, orderHash: string }> {
     
     const maker = await this.signer.getAddress();
     const staticExtradata = ethers.utils.defaultAbiCoder.encode(
-      ['address[2]', 'uint256[3]', 'string', 'bytes'],
+      ['address[2]', 'uint256[3]', 'string'],
       [
         [erc1155Address, erc20Address],
         [erc1155Id, erc1155SellNumerator, erc20SellPrice],
         tokenURI,
-        mintSignature,
       ]
     );
     const order = {
@@ -452,16 +445,14 @@ export class WrappedExchange {
     erc20BuyPrice: BigNumberish,
     expirationTime: string,
     tokenURI: string,
-    mintSignature: string,
   ) : Promise<{ order: Order, signature: Sig, orderHash: string }> {
     const maker = await this.signer.getAddress();
     const staticExtradata = ethers.utils.defaultAbiCoder.encode(
-      ['address[2]', 'uint256[3]', 'string', 'bytes'],
+      ['address[2]', 'uint256[3]', 'string'],
       [
         [erc20Address, erc1155Address],
         [erc1155Id, erc20BuyPrice, erc1155BuyDenominator],
         tokenURI,
-        mintSignature,
       ]
     );
     const order = {
@@ -489,18 +480,17 @@ export class WrappedExchange {
     buySig: Sig,
     buyAmount: BigNumberish
   ) : Promise<Transaction> {
-    const [[erc1155Address, erc20Address], [tokenId, erc1155Numerator, erc20SellPrice], tokenURI, mintSig] = ethers.utils.defaultAbiCoder.decode(['address[2]', 'uint256[3]', 'string', 'bytes'], sellOrder.staticExtradata);
-    const [[erc20AddressOther, erc1155AddressOther], [tokenIdOther, erc20BuyPrice, erc1155Denominator], tokenURIOther, mintSigOther] = ethers.utils.defaultAbiCoder.decode(['address[2]', 'uint256[3]', 'string', 'bytes'], buyOrder.staticExtradata);
+    const [[erc1155Address, erc20Address], [tokenId, erc1155Numerator, erc20SellPrice], tokenURI] = ethers.utils.defaultAbiCoder.decode(['address[2]', 'uint256[3]', 'string'], sellOrder.staticExtradata);
+    const [[erc20AddressOther, erc1155AddressOther], [tokenIdOther, erc20BuyPrice, erc1155Denominator], tokenURIOther] = ethers.utils.defaultAbiCoder.decode(['address[2]', 'uint256[3]', 'string'], buyOrder.staticExtradata);
     
     if (erc1155Address != erc1155AddressOther) throw new Error('ERC1155 Addresses don\'t match on orders');
     if (erc20Address != erc20AddressOther) throw new Error('ERC20 Addresses don\'t match on orders');
     if (!tokenId.eq(tokenIdOther)) throw new Error('ERC1155 token IDs don\'t match on orders');
     if (!erc20SellPrice.eq(erc20BuyPrice)) throw new Error('ERC20 buying prices don\'t match on orders');
     if (!erc1155Numerator.eq(erc1155Denominator)) throw new Error('ERC1155 Numerator and Denominator don\'t match');
-    if (mintSig != mintSigOther) throw new Error('Lazy mint signatures don\'t match on orders');
     if(tokenURI != tokenURIOther) throw new Error('Lazy mint tokenURIs don\'t match on orders');
 
-    const firstData = ERC1155Interface.encodeFunctionData("mintAndTransfer", [sellOrder.maker, buyOrder.maker, tokenId, buyAmount, tokenURI, mintSig]);
+    const firstData = ERC1155Interface.encodeFunctionData("mint(address,uint256,uint256,string)", [buyOrder.maker, tokenId, buyAmount, tokenURI]);
     const secondData = ERC20Interface.encodeFunctionData("transferFrom", [buyOrder.maker, sellOrder.maker, buyOrder.maximumFill]);
 
     const firstCall = { target: erc1155Address, howToCall: 0, data: firstData };
@@ -579,7 +569,6 @@ export class WrappedExchange {
       erc1155BuyAmount?: BigNumberish,
       erc1155BuyDenominator?: BigNumberish,
       lazyTokenURI?: string,
-      lazySignature?: string,
     }
   ): Promise<{order: Order; signature: Sig; orderHash: string}> {
     switch (tokenType) {
@@ -594,7 +583,6 @@ export class WrappedExchange {
     case 'LazyERC721':
       if (!optionalParams) throw new Error('No optional params for lazy ERC721');
       if (!optionalParams.lazyTokenURI) throw new Error('Must include param lazyTokenURI for lazy mint');
-      if (!optionalParams.lazySignature) throw new Error('Must include param lazySignature for lazy mint');
       return this.offerERC20ForLazyERC721(
         tokenAddress,
         tokenId,
@@ -602,7 +590,6 @@ export class WrappedExchange {
         erc20BuyPrice,
         expirationTime,
         optionalParams.lazyTokenURI,
-        optionalParams.lazySignature
       );
     case 'ERC1155':
       if (!optionalParams) throw new Error('No optional params for ERC1155');
@@ -622,7 +609,6 @@ export class WrappedExchange {
       if (!optionalParams.erc1155BuyAmount) throw new Error('Must include param erc1155BuyAmount for ERC1155 Bid');
       if (!optionalParams.erc1155BuyDenominator) throw new Error('Must include param erc1155BuyDenominator for ERC1155 Bid');
       if (!optionalParams.lazyTokenURI) throw new Error('Must include param lazyTokenURI for lazy mint');
-      if (!optionalParams.lazySignature) throw new Error('Must include param lazySignature for lazy mint');
       return this.offerERC20ForLazyERC1155(
         tokenAddress,
         tokenId,
@@ -632,7 +618,6 @@ export class WrappedExchange {
         erc20BuyPrice,
         expirationTime,
         optionalParams.lazyTokenURI,
-        optionalParams.lazySignature,
       );
     default:
       throw Error('Wrong token type. Must be ERC721, LazyERC721, ERC1155, or LazyERC1155');
@@ -650,7 +635,6 @@ export class WrappedExchange {
       erc1155SellAmount?: BigNumberish,
       erc1155SellNumerator?: BigNumberish,
       lazyTokenURI?: string,
-      lazySignature?: string,
     }
   ): Promise<{order: Order; signature: Sig; orderHash: string;}> {
     switch (tokenType) {
@@ -664,7 +648,6 @@ export class WrappedExchange {
       );
     case 'LazyERC721':
       if (!optionalParams.lazyTokenURI) throw new Error('Must include param lazyTokenURI for lazy mint');
-      if (!optionalParams.lazySignature) throw new Error('Must include param lazySignature for lazy mint');
       return this.offerLazyERC721ForERC20(
         tokenAddress,
         tokenId,
@@ -672,7 +655,6 @@ export class WrappedExchange {
         erc20SellPrice,
         expirationTime,
         optionalParams.lazyTokenURI,
-        optionalParams.lazySignature
       );
     case 'ERC1155':
       if (!optionalParams.erc1155SellAmount) throw new Error('Must include param erc1155SellAmount for ERC1155 Ask');
@@ -690,7 +672,6 @@ export class WrappedExchange {
       if (!optionalParams.erc1155SellAmount) throw new Error('Must include param erc1155SellAmount for ERC1155 Ask');
       if (!optionalParams.erc1155SellNumerator) throw new Error('Must include param erc1155SellNumerator for ERC1155 Ask');
       if (!optionalParams.lazyTokenURI) throw new Error('Must include param lazyTokenURI for lazy mint');
-      if (!optionalParams.lazySignature) throw new Error('Must include param lazySignature for lazy mint');
       return this.offerLazyERC1155ForERC20(
         tokenAddress,
         tokenId,
@@ -700,7 +681,6 @@ export class WrappedExchange {
         erc20SellPrice,
         expirationTime,
         optionalParams.lazyTokenURI,
-        optionalParams.lazySignature,
       );
     default:
       throw Error('Wrong token type. Must be ERC721 or ERC1155');

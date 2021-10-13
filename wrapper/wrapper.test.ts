@@ -35,6 +35,8 @@ describe('WyvernRegistry', () => {
   let erc20: TestERC20;
   let erc721: TestERC721;
   let erc1155: TestERC1155;
+  
+  const validTokenID = (account) => ethers.BigNumber.from(account.address).mul(ethers.BigNumber.from(2).pow(96));
 
   beforeEach(async () => {
     await network.provider.send('hardhat_reset', []);
@@ -59,7 +61,7 @@ describe('WyvernRegistry', () => {
     const StaticMarket = new StaticMarket__factory(accounts[0]);
     staticMarket = await StaticMarket.deploy();
     await staticMarket.deployed();
-		
+  
     await registry.grantInitialAuthentication(exchange.address);
 
     const TestERC20 = new TestERC20__factory(accounts[0]);
@@ -379,20 +381,18 @@ describe('WyvernRegistry', () => {
 			
       await erc20.connect(account_b).approve(proxyB, erc20MintAmount);
       await erc20.mint(account_b.address, erc20MintAmount);
+      await erc1155.connect(account_a).setApprovalForAll(proxyA, true);
 
-      const payload = Buffer.from(ethers.utils.solidityKeccak256(['uint256', 'string'], [tokenId, lazyTokenURI]).slice(2), 'hex');
-      const lazySignature = await account_a.signMessage(payload);
-	
       if (buyTokenId)
         await erc1155['mint(address,uint256,uint256)'](account_a.address, buyTokenId, erc1155MintAmount);
 	
       const wrappedExchangeSeller = new WrappedExchange(account_a, 1337);
       const wrappedExchangeBuyer = new WrappedExchange(account_b, 1337);
       const wrappedExchangeSender = new WrappedExchange(sender, 1337);
-			
-      const { order: sellOrder, signature: sellSig } = await wrappedExchangeSeller.placeAsk('LazyERC1155', erc1155.address, tokenId, erc20.address, sellingPrice, '0', {erc1155SellAmount: sellAmount, erc1155SellNumerator: sellingNumerator || 1, lazyTokenURI, lazySignature});
+
+      const { order: sellOrder, signature: sellSig } = await wrappedExchangeSeller.placeAsk('LazyERC1155', erc1155.address, tokenId, erc20.address, sellingPrice, '0', {erc1155SellAmount: sellAmount, erc1155SellNumerator: sellingNumerator || 1, lazyTokenURI});
       for (let i = 0 ; i < txCount ; ++i) {
-        const { order: buyOrder, signature: buySig } = await wrappedExchangeBuyer.placeBid('LazyERC1155', erc1155.address, buyTokenId || tokenId, erc20.address, buyingPrice, '0', {erc1155BuyAmount: buyAmount, erc1155BuyDenominator: buyingDenominator || 1, lazyTokenURI, lazySignature});
+        const { order: buyOrder, signature: buySig } = await wrappedExchangeBuyer.placeBid('LazyERC1155', erc1155.address, buyTokenId || tokenId, erc20.address, buyingPrice, '0', {erc1155BuyAmount: buyAmount, erc1155BuyDenominator: buyingDenominator || 1, lazyTokenURI});
         await wrappedExchangeSender.matchOrders('LazyERC1155', sellOrder, sellSig, buyOrder, buySig, sellingNumerator || buyAmount);
         buyOrder.salt = buyOrder.salt + 1;
       }
@@ -408,7 +408,7 @@ describe('WyvernRegistry', () => {
       const price = 10000;
 	
       return lazy_erc1155_for_erc20_test({
-        tokenId: 5,
+        tokenId: validTokenID(accounts[0]),
         sellAmount: amount,
         sellingPrice: price,
         buyingPrice: price,
@@ -429,7 +429,7 @@ describe('WyvernRegistry', () => {
       const transactions = 3;
 	
       return lazy_erc1155_for_erc20_test({
-        tokenId: 5,
+        tokenId: validTokenID(accounts[0]),
         sellAmount: nftAmount,
         sellingPrice: price,
         buyingPrice: price,
@@ -450,7 +450,7 @@ describe('WyvernRegistry', () => {
       const price = 10000;
 	
       return lazy_erc1155_for_erc20_test({
-        tokenId: 5,
+        tokenId: validTokenID(accounts[0]),
         sellAmount: nftAmount,
         sellingPrice: price,
         buyingPrice: price,
@@ -469,7 +469,7 @@ describe('WyvernRegistry', () => {
       const price = 972;
 	
       return lazy_erc1155_for_erc20_test({
-        tokenId: 5,
+        tokenId: validTokenID(accounts[0]),
         sellAmount: 6,
         sellingNumerator: lot,
         sellingPrice: price,
@@ -489,7 +489,7 @@ describe('WyvernRegistry', () => {
       const price = 10000;
 	
       return lazy_erc1155_for_erc20_test({
-        tokenId: 5,
+        tokenId: validTokenID(accounts[0]),
         sellAmount: 1,
         sellingPrice: price,
         buyingPrice: price,
@@ -509,7 +509,7 @@ describe('WyvernRegistry', () => {
 	
       await chai.expect(
         lazy_erc1155_for_erc20_test({
-          tokenId: 5,
+          tokenId: validTokenID(accounts[0]),
           sellAmount: 1,
           sellingPrice: price,
           buyingPrice: price,
@@ -530,7 +530,7 @@ describe('WyvernRegistry', () => {
 	
       await chai.expect(
         lazy_erc1155_for_erc20_test({
-          tokenId: 5,
+          tokenId: validTokenID(accounts[0]),
           sellAmount: 1,
           sellingPrice: price,
           buyingPrice: price-10,
@@ -550,7 +550,7 @@ describe('WyvernRegistry', () => {
 	
       await chai.expect(
         lazy_erc1155_for_erc20_test({
-          tokenId: 5,
+          tokenId: validTokenID(accounts[0]),
           sellAmount: 1,
           sellingPrice: price,
           buyingPrice: price,
@@ -573,7 +573,7 @@ describe('WyvernRegistry', () => {
 	
       await chai.expect(
         lazy_erc1155_for_erc20_test({
-          tokenId: 5,
+          tokenId: validTokenID(accounts[0]),
           sellAmount: nftAmount,
           sellingPrice: price,
           buyingPrice: price,
@@ -595,7 +595,7 @@ describe('WyvernRegistry', () => {
 	
       await chai.expect(
         lazy_erc1155_for_erc20_test({
-          tokenId: 5,
+          tokenId: validTokenID(accounts[0]),
           sellAmount: nftAmount,
           sellingPrice: price,
           buyingPrice: price,
@@ -615,7 +615,7 @@ describe('WyvernRegistry', () => {
 	
       await chai.expect(
         lazy_erc1155_for_erc20_test({
-          tokenId: 5,
+          tokenId: validTokenID(accounts[0]),
           buyTokenId: 6,
           sellAmount: 1,
           sellingPrice: price,
@@ -652,12 +652,12 @@ describe('WyvernRegistry', () => {
 			
       await erc721.connect(account_a).setApprovalForAll(proxyA, true);
       await erc20.connect(account_b).approve(proxyB, erc20MintAmount);
-      await erc721.mint(account_a.address, tokenId);
+      await erc721['mint(address,uint256)'](account_a.address, tokenId);
       await erc20.mint(account_b.address, erc20MintAmount);
 			
 
       if (buyTokenId)
-        await erc721.mint(account_a.address, buyTokenId);
+        await erc721['mint(address,uint256)'](account_a.address, buyTokenId);
 			
       const wrappedExchangeSeller = new WrappedExchange(account_a, 1337);
       const wrappedExchangeBuyer = new WrappedExchange(account_b, 1337);
@@ -746,25 +746,23 @@ describe('WyvernRegistry', () => {
       } = options;
 
       await registry.connect(account_a).registerProxy();
-      await registry.proxies(account_a.address); // const proxyA = 
-	
+      const proxyA = await registry.proxies(account_a.address);
+
       await registry.connect(account_b).registerProxy();
       const proxyB = await registry.proxies(account_b.address);
-			
+
       await erc20.connect(account_b).approve(proxyB, erc20MintAmount);
       await erc20.mint(account_b.address, erc20MintAmount);
+      await erc721.connect(account_a).setApprovalForAll(proxyA, true);
 
-      const payload = Buffer.from(ethers.utils.solidityKeccak256(['uint256', 'string'], [tokenId, lazyTokenURI]).slice(2), 'hex');
-      const lazySignature = await account_a.signMessage(payload);
-      
       if (buyTokenId)
-        await erc721.mint(account_a.address, buyTokenId);
-			
+        await erc721['mint(address,uint256)'](account_a.address, buyTokenId);
+
       const wrappedExchangeSeller = new WrappedExchange(account_a, 1337);
       const wrappedExchangeBuyer = new WrappedExchange(account_b, 1337);
 
-      const sellData = await wrappedExchangeSeller.placeAsk('LazyERC721', erc721.address, tokenId, erc20.address, sellingPrice, '0', {lazySignature, lazyTokenURI});
-      const buyData = await wrappedExchangeBuyer.placeBid('LazyERC721', erc721.address, buyTokenId || tokenId, erc20.address, buyingPrice, '0', {lazySignature, lazyTokenURI});
+      const sellData = await wrappedExchangeSeller.placeAsk('LazyERC721', erc721.address, tokenId, erc20.address, sellingPrice, '0', {lazyTokenURI});
+      const buyData = await wrappedExchangeBuyer.placeBid('LazyERC721', erc721.address, buyTokenId || tokenId, erc20.address, buyingPrice, '0', {lazyTokenURI});
 
       await wrappedExchangeSeller.matchOrders('LazyERC721', sellData.order, sellData.signature, buyData.order, buyData.signature);
       const account_a_erc20_balance = await erc20.balanceOf(account_a.address);
@@ -777,7 +775,7 @@ describe('WyvernRegistry', () => {
       const price = 15000;
 
       return erc721_for_erc20_test({
-        tokenId: 10,
+        tokenId: validTokenID(accounts[1]),
         sellingPrice: price,
         buyingPrice: price,
         erc20MintAmount: price,
@@ -792,7 +790,7 @@ describe('WyvernRegistry', () => {
       // note: this will also reject on-chain
       await chai.expect(
         erc721_for_erc20_test({
-          tokenId: 10,
+          tokenId: validTokenID(accounts[1]),
           sellingPrice: price,
           buyingPrice: price-1,
           erc20MintAmount: price,
@@ -808,7 +806,7 @@ describe('WyvernRegistry', () => {
 
       await chai.expect(
         erc721_for_erc20_test({
-          tokenId: 10,
+          tokenId: validTokenID(accounts[1]),
           sellingPrice: price,
           buyingPrice: price,
           erc20MintAmount: price-1,
@@ -824,7 +822,7 @@ describe('WyvernRegistry', () => {
       // note: this will also reject on-chain
       await chai.expect(
         erc721_for_erc20_test({
-          tokenId: 10,
+          tokenId: validTokenID(accounts[1]),
           buyTokenId: 11,
           sellingPrice: price,
           buyingPrice: price,
@@ -834,6 +832,22 @@ describe('WyvernRegistry', () => {
           lazyTokenURI: 'tokenUri.com',
         })
       ).eventually.rejectedWith(/ERC721 token IDs don't match on orders/);
+    });
+
+    it('throws if tokenId does not match maker', async () => {
+      const price = 15000;
+
+      await chai.expect(
+        erc721_for_erc20_test({
+          tokenId: 0,
+          sellingPrice: price,
+          buyingPrice: price,
+          erc20MintAmount: price,
+          account_a: accounts[1],
+          account_b: accounts[6],
+          lazyTokenURI: 'tokenUri.com',
+        })
+      ).eventually.rejectedWith(/First call failed/);
     });
   });
 
@@ -972,7 +986,7 @@ describe('WyvernRegistry', () => {
     });
 
     it('returns the correct ERC721 approval', async () => {
-      await erc721.mint(account_a.address, 0);
+      await erc721['mint(address,uint256)'](account_a.address, 0);
       const proxy = await registerProxy();
       await erc721.connect(account_a).approve(proxy, 0);
       
@@ -982,7 +996,7 @@ describe('WyvernRegistry', () => {
     });
 
     it('asks for ERC721 approval if not approved', async () => {
-      await erc721.mint(account_a.address, 0);
+      await erc721['mint(address,uint256)'](account_a.address, 0);
       await registerProxy();
       
       chai.expect(
@@ -1025,10 +1039,10 @@ describe('WyvernRegistry', () => {
   //       sender,
   //       transactions
   //     } = options;
-	
+ 
   //     const txCount = transactions || 1;
   //     const takerPriceOffset = buyPriceOffset || 0;
-			
+   
   //     const TestERC20 = new TestERC20__factory(accounts[0]);
   //     const erc20Seller = await TestERC20.deploy();
   //     await erc20Seller.deployed();

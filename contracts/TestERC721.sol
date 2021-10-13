@@ -26,9 +26,9 @@ contract TestERC721 is ERC721("test", "TST") {
         return true;
     }
 
-    function mintAndTransfer(address from, address to, uint256 id, string calldata uri, bytes calldata signature) public {
-        bytes32 hash = ECDSA.toEthSignedMessageHash(keccak256(abi.encodePacked(id, uri)));
-        require(ECDSA.recover(hash, signature) == from, "Signature failed to recover");
-        _mint(to, id);
+    function mint(address to, uint256 tokenId, string memory uri) public {
+        address creator = address(uint160(tokenId >> 96));
+        require(creator == msg.sender || super.isApprovedForAll(creator, msg.sender), "Sender not authorized to mint this token");
+        _safeMint(to, tokenId);
     }
 }

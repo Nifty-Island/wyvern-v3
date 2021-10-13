@@ -26,9 +26,11 @@ contract TestERC1155 is ERC1155("http://test/{id}.json") {
 		return true;
 	}
 
-	function mintAndTransfer(address from, address to, uint256 tokenId, uint256 amount, string calldata uri, bytes calldata signature) public {
-		bytes32 hash = ECDSA.toEthSignedMessageHash(keccak256(abi.encodePacked(tokenId, uri)));
-		require(ECDSA.recover(hash, signature) == from, "Signature failed to recover");
-		_mint(to, tokenId, amount, "");
+	function mint(address to, uint256 id, uint256 amount, string memory uri)
+			public
+	{
+			address creator = address(uint160(id >> 96));
+			require(creator == msg.sender || super.isApprovedForAll(creator, msg.sender), "Sender authorized to mint this token");
+			_mint(to, id, amount, "");
 	}
 }
