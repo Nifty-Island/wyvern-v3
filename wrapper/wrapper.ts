@@ -734,7 +734,9 @@ export class WrappedExchange {
 
   public async cancelOrder(order: Order): Promise<Transaction> {
     const orderHash = await this.getOrderHash(order);
-    return this.exchange.setOrderFill_(orderHash, order.maximumFill);
+    const tx = await this.exchange.setOrderFill_(orderHash, order.maximumFill);
+    tx.wait();
+    return tx;
   }
 
   // utility chain calls for the frontend
