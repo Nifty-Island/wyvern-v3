@@ -1,5 +1,5 @@
 import { run } from "hardhat";
-import { WebSocketProvider } from "@ethersproject/providers";
+import { JsonRpcProvider } from "@ethersproject/providers";
 import { Wallet } from "@ethersproject/wallet";
 import { WyvernRegistry__factory } from "../dist/build/types/factories/WyvernRegistry__factory";
 import fs from "fs";
@@ -11,11 +11,11 @@ async function main() {
   // if (chainId === undefined) {
   //   throw new Error("chain id is required (1=mainnet, 4=rinkeby, other=local");
   // }
-  const path = `${process.cwd()}/.env`;
+  const path = `${process.cwd()}/.env.dev`;
 
   await require("dotenv").config({ path });
 
-  const provider = new WebSocketProvider(process.env.INFURA_WSS, "rinkeby");
+  const provider = new JsonRpcProvider(process.env.RPC_ENDPOINT);
   const wallet = new Wallet(`${process.env.DEPLOY_PRIVATE_KEY}`, provider);
 
   // Island ERC 1155 Deployment
